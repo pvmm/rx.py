@@ -93,7 +93,7 @@ def process_image(image, max_colors):
 
 
 def inc(edges, pixels):
-    sorted_args = sorted(pixels)
+    sorted_args = tuple(sorted(pixels))
     if sorted_args in edges:
         edges[sorted_args] += 1
     else:
