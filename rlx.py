@@ -31,8 +31,9 @@ __version__ = '1.0'
 
 class FakeImage:
     def __init__(self):
-        self.size = 10, 1
-        self.data = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        self.data = [1, 1, 1, 1, 2, 1, 4, 4, 1, 3, 1, 1, 1]
+        self.size = len(self.data), 1
+        self.old_data = list(self.data)
 
     def getdata(self):
         return self.data
@@ -40,64 +41,67 @@ class FakeImage:
     def get_name(self):
         return 'fake_image.png'
 
-    def save(self, name):
-        print(self.getdata())
+    def save(self, name, colours=None, edges=None):
+        print('colours:', colours)
+        print('edges:', edges)
+        print('old data:', self.old_data)
+        print('new data:', self.data)
 
 
-def process_image(image, max_colors):
+def process_image(image, max_colours):
     (w, h) = image.size
     data = image.getdata()
-    colors = {}
-    erased_pixels = []
+    colours = []
+    overwritten_pixels = []
     edges = {}
 
     for y in range(0, h):
         for x in range(0, w):
             pos = x + y * w
             pixel = data[pos]
-            if not pixel in colors:
-                colors[pixel] = True
+            if not pixel in colours:
+                colours.append(pixel)
             if x > 0:
                 prev_pixel = data[pos - 1]
             else:
                 prev_pixel = None
-            if x < w - 1:
-                next_pixel = data[pos + 1]
-            else:
-                next_pixel = None
 
-            # detect horizontal line
-            # aA
-            if prev_pixel == pixel:
-                # aAa
-                if next_pixel == pixel:
-                    # erase middle pixels
-                    erased_pixels.append(pos)
-                edge = (pixel == next_pixel)
-            # aB.
-            elif prev_pixel and next_pixel:
-                # .aBc
-                if not edge:
-                    if pixel != next_pixel:
-                        # [^a]aBc
-                        inc(edges, (pixel, next_pixel))
-                edge = False
-        for pos in erased_pixels:
-            data[pos] = 0
-        erased_pixels = []
+            if not prev_pixel is None:
+                overwritten_pixels.append((pos, (prev_pixel, pixel)))
+                if prev_pixel != pixel:
+                    inc(edges, (prev_pixel, pixel))
+        for pos, pixel in overwritten_pixels:
+            data[pos] = pixel
+        overwritten_pixels = []
 
-    if len(colors) > max_colors:
-        raise ValueError('max colors exceeded')
+    if len(colours) > max_colours:
+        raise ValueError('max colours exceeded')
 
-    image.save('p_' + image.get_name())
+    xor_encode_colors(data, edges)
+    if type(image) != FakeImage:
+        new_image = image.convert('RGB').convert('P', palette=Image.ADAPTIVE, colors=max_colours)
+    else:
+        new_image = image
+    new_image.save('p_' + image.get_name(), colours, edges)
+
+
+def xor_encode_colors(data, edges):
+    for idx, item in enumerate(data):
+        if type(item) == tuple:
+            a1, a2 = item
+            a = a1 ^ a2
+            data[idx] = a
 
 
 def inc(edges, pixels):
     sorted_args = tuple(sorted(pixels))
     if sorted_args in edges:
+        print("updated edge", sorted_args)
         edges[sorted_args] += 1
+        #raise "a"
     else:
-        edges[sorted_args] = 0
+        print("created edge", sorted_args)
+        edges[sorted_args] = 1
 
 
 def main():
@@ -110,11 +114,11 @@ def main():
         '--version', action='version', version='%(prog)s ' + __version__
     )
     parser.add_argument(
-        '--num-colors',
-        dest='num_colors',
+        '--num-colours',
+        dest='num_colours',
         default=16,
         type=int,
-        help='define the number of colors in the image',
+        help='define the number of colours in the image',
     )
     parser.add_argument(
         '-r',
@@ -136,7 +140,7 @@ def main():
     args = parser.parse_args()
 
     if args.test:
-        process_image(FakeImage(), args.num_colors)
+        process_image(FakeImage(), args.num_colours)
     else:
         for image_name in args.image:
             try:
@@ -146,7 +150,7 @@ def main():
             if image.mode != 'RGB':
                 raise TypeError('not RGB image')
             try:
-                process_image(image, args.num_colors)
+                process_image(image, args.num_colours)
             except Exception as e:
                 print('image "%s" not saved: %s' % image_name, e.message)
 
