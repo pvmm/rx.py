@@ -3,7 +3,7 @@
 # Copyright (C) 2023 by Pedro de Medeiros <pedro.medeiros@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
+# of this software and associated documentation files (the 'Software'), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
@@ -12,7 +12,7 @@
 # The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -26,18 +26,25 @@ from argparse import ArgumentParser
 from PIL import Image
 
 
-__version__ = "1.0"
+__version__ = '1.0'
 
 
-def process_image(image_name, max_colors):
-    try:
-        image = Image.open(image_name)
-    except IOError:
-        raise IOError('failed to open the image "%s"' % image_name)
+class FakeImage:
+    def __init__(self):
+        self.size = 10, 1
+        self.data = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
-    if image.mode != "RGB":
-        raise TypeError("not RGB image")
+    def getdata(self):
+        return self.data
 
+    def get_name(self):
+        return 'fake_image.png'
+
+    def save(self, name):
+        print(self.getdata())
+
+
+def process_image(image, max_colors):
     (w, h) = image.size
     data = image.getdata()
     colors = {}
@@ -82,7 +89,7 @@ def process_image(image_name, max_colors):
     if len(colors) > max_colors:
         raise ValueError('max colors exceeded')
 
-    image.save('p_' + image_name)
+    image.save('p_' + image.get_name())
 
 
 def inc(edges, pixels):
@@ -95,37 +102,54 @@ def inc(edges, pixels):
 
 def main():
     parser = ArgumentParser(
-        description="PNG to RLX (Run-length XOR) encoder",
-        epilog="Copyright (C) 2023 Pedro de Medeiros <pedro.medeiros@gmail.com>",
+        description='PNG to RLX (Run-length XOR) encoder',
+        epilog='Copyright (C) 2023 Pedro de Medeiros <pedro.medeiros@gmail.com>',
     )
 
     parser.add_argument(
-        "--version", action="version", version="%(prog)s " + __version__
+        '--version', action='version', version='%(prog)s ' + __version__
     )
     parser.add_argument(
-        "--num-colors",
-        dest="num_colors",
+        '--num-colors',
+        dest='num_colors',
         default=16,
         type=int,
-        help="define the number of colors in the image",
+        help='define the number of colors in the image',
     )
     parser.add_argument(
-        "-r",
-        "--rgb",
-        dest="rgb",
-        action="store_true",
-        help="convert to RGB image (default: indexed)",
+        '-r',
+        '--rgb',
+        dest='rgb',
+        action='store_true',
+        help='convert to RGB image (default: indexed)',
+    )
+    parser.add_argument(
+        '-t',
+        '--test',
+        dest='test',
+        action='store_true',
+        help='run fake test image',
     )
 
-    parser.add_argument("image", nargs="+", help="image or images to convert")
+
+    parser.add_argument('image', nargs='+', help='image or images to convert')
     args = parser.parse_args()
 
-    for image_name in args.image:
-        try:
-            process_image(image_name, args.num_colors)
-        except Exception as e:
-            print('image "%s" not saved: %s' % image_name, e.message)
+    if args.test:
+        process_image(FakeImage(), args.num_colors)
+    else:
+        for image_name in args.image:
+            try:
+                image = Image.open(image_name)
+            except IOError:
+                raise IOError('failed to open the image "%s"' % image_name)
+            if image.mode != 'RGB':
+                raise TypeError('not RGB image')
+            try:
+                process_image(image, args.num_colors)
+            except Exception as e:
+                print('image "%s" not saved: %s' % image_name, e.message)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
