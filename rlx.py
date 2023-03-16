@@ -35,6 +35,14 @@ class FakeImage:
         self.size = len(self.data), 1
         self.old_data = list(self.data)
 
+    def getpixel(self, coordinates):
+        x, y = coordinates
+        return self.data[x + y * self.size[0]]
+
+    def putpixel(self, coordinates, value):
+        x, y = coordinates 
+        self.data[x + y * self.size[0]] = value
+
     def getdata(self):
         return self.data
 
@@ -57,32 +65,27 @@ def process_image(image, max_colours):
 
     for y in range(0, h):
         for x in range(0, w):
-            pos = x + y * w
-            pixel = data[pos]
+            pixel = image.getpixel((x, y))
             if not pixel in colours:
                 colours.append(pixel)
             if x > 0:
-                prev_pixel = data[pos - 1]
+                prev_pixel = image.getpixel((x - 1, y))
             else:
                 prev_pixel = None
 
             if not prev_pixel is None:
-                overwritten_pixels.append((pos, (prev_pixel, pixel)))
+                overwritten_pixels.append(((x, y), (prev_pixel, pixel)))
                 if prev_pixel != pixel:
                     inc(edges, (prev_pixel, pixel))
-        for pos, pixel in overwritten_pixels:
-            data[pos] = pixel
+        for coordinates, pixel in overwritten_pixels:
+            image.putpixel(coordinates, pixel)
         overwritten_pixels = []
 
     if len(colours) > max_colours:
         raise ValueError('max colours exceeded')
 
     xor_encode_colors(data, edges)
-    if type(image) != FakeImage:
-        new_image = image.convert('RGB').convert('P', palette=Image.ADAPTIVE, colors=max_colours)
-    else:
-        new_image = image
-    new_image.save('p_' + image.get_name(), colours, edges)
+    image.save('p_' + image.get_name(), colours, edges)
 
 
 def xor_encode_colors(data, edges):
