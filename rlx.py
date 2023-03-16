@@ -31,6 +31,7 @@ __version__ = '1.0'
 
 class FakeImage:
     def __init__(self):
+        self.filename = 'fake_image.png'
         self.data = [1, 1, 1, 1, 2, 1, 4, 4, 1, 3, 1, 1, 1]
         self.size = len(self.data), 1
         self.old_data = list(self.data)
@@ -49,9 +50,7 @@ class FakeImage:
     def get_name(self):
         return 'fake_image.png'
 
-    def save(self, name, colours=None, edges=None):
-        print('colours:', colours)
-        print('edges:', edges)
+    def save(self, name):
         print('old data:', self.old_data)
         print('new data:', self.data)
 
@@ -60,7 +59,7 @@ def process_image(image, max_colours):
     (w, h) = image.size
     data = image.getdata()
     colours = []
-    overwritten_pixels = []
+    overwrite_pixels = []
     edges = {}
 
     for y in range(0, h):
@@ -74,26 +73,17 @@ def process_image(image, max_colours):
                 prev_pixel = None
 
             if not prev_pixel is None:
-                overwritten_pixels.append(((x, y), (prev_pixel, pixel)))
-                if prev_pixel != pixel:
-                    inc(edges, (prev_pixel, pixel))
-        for coordinates, pixel in overwritten_pixels:
+                overwrite_pixels.append(((x, y), prev_pixel ^ pixel))
+        # change line after it is finished
+        for coordinates, pixel in overwrite_pixels:
             image.putpixel(coordinates, pixel)
-        overwritten_pixels = []
+        overwrite_pixels = []
 
     if len(colours) > max_colours:
         raise ValueError('max colours exceeded')
 
-    xor_encode_colors(data, edges)
-    image.save('p_' + image.get_name(), colours, edges)
-
-
-def xor_encode_colors(data, edges):
-    for idx, item in enumerate(data):
-        if type(item) == tuple:
-            a1, a2 = item
-            a = a1 ^ a2
-            data[idx] = a
+    path, filename = os.path.split(image.filename)
+    image.save(os.path.join(path, 'p_' + filename))
 
 
 def inc(edges, pixels):
@@ -150,8 +140,8 @@ def main():
                 image = Image.open(image_name)
             except IOError:
                 raise IOError('failed to open the image "%s"' % image_name)
-            if image.mode != 'RGB':
-                raise TypeError('not RGB image')
+            if image.mode != 'P':
+                raise TypeError('not indexed image')
             try:
                 process_image(image, args.num_colours)
             except Exception as e:
