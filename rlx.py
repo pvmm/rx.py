@@ -27,6 +27,8 @@ from PIL import Image
 
 
 __version__ = '1.0'
+num_colours = 16
+contains_palette = False
 
 
 class FakeImage:
@@ -55,14 +57,15 @@ class FakeImage:
         print('new data:', self.data)
 
 
-def process_image(image, max_colours):
+def process_image(image):
     (w, h) = image.size
     data = image.getdata()
     colours = []
     overwrite_pixels = []
     edges = {}
 
-    for y in range(0, h):
+    print('image palette: %s' % ('true' if contains_palette else 'false'))
+    for y in range(1 if contains_palette else 0, h):
         for x in range(0, w):
             pixel = image.getpixel((x, y))
             if not pixel in colours:
@@ -79,8 +82,8 @@ def process_image(image, max_colours):
             image.putpixel(coordinates, pixel)
         overwrite_pixels = []
 
-    if len(colours) > max_colours:
-        raise ValueError('max colours exceeded')
+    if len(colours) > num_colours:
+        raise ValueError('number of colours exceeded')
 
     path, filename = os.path.split(image.filename)
     image.save(os.path.join(path, 'p_' + filename))
@@ -98,6 +101,8 @@ def inc(edges, pixels):
 
 
 def main():
+    global contains_palette
+
     parser = ArgumentParser(
         description='PNG to RLX (Run-length XOR) encoder',
         epilog='Copyright (C) 2023 Pedro de Medeiros <pedro.medeiros@gmail.com>',
@@ -121,6 +126,13 @@ def main():
         help='convert to RGB image (default: indexed)',
     )
     parser.add_argument(
+        '-c',
+        '--contains-palette',
+        dest='contains_palette',
+        action='store_true',
+        help='image contains palette (height + 1)',
+    )
+    parser.add_argument(
         '-t',
         '--test',
         dest='test',
@@ -131,9 +143,12 @@ def main():
 
     parser.add_argument('image', nargs='+', help='image or images to convert')
     args = parser.parse_args()
+    num_colours = args.num_colours
+    contains_palette = args.contains_palette
+    print('image palette: %s' % ('true' if contains_palette else 'false'))
 
     if args.test:
-        process_image(FakeImage(), args.num_colours)
+        process_image(FakeImage())
     else:
         for image_name in args.image:
             try:
@@ -143,9 +158,9 @@ def main():
             if image.mode != 'P':
                 raise TypeError('not indexed image')
             try:
-                process_image(image, args.num_colours)
+                process_image(image)
             except Exception as e:
-                print('image "%s" not saved: %s' % image_name, e.message)
+                print('image "%s" not saved: %s' % (image_name, str(e)))
 
 
 if __name__ == '__main__':
