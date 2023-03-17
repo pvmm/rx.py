@@ -14,6 +14,11 @@ For now RX.py requires indexed PNGs to work. But a SCREEN 8 version with RGB ima
 ## Reference
 [this thread](https://www.msx.org/forum/msx-talk/development/hardware-accelerated-polygon-fill-using-lmmm)
 
+## Requirements
+
+- OpenCV for line detection;
+
+
 ## TODO list:
 * Output SC5 raw format directly;
 * Output SC8 raw format directly;
