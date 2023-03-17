@@ -86,7 +86,7 @@ def process_image(image):
         raise ValueError('number of colours exceeded')
 
     path, filename = os.path.split(image.filename)
-    image.save(os.path.join(path, 'p_' + filename))
+    image.save(os.path.join(path, 'p_' + os.path.splitext(filename)[0] + '.png'))
 
 
 def inc(edges, pixels):
