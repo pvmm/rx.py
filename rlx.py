@@ -29,6 +29,8 @@ from PIL import Image
 __version__ = '1.0'
 num_colours = 16
 contains_palette = False
+colourmap = {}
+indexmap = {}
 
 
 class FakeImage:
@@ -57,6 +59,17 @@ class FakeImage:
         print('new data:', self.data)
 
 
+def process_palette(image):
+    for index in range(0, num_colours):
+        pixel = image.getpixel((index, 0))
+        if not pixel in indexmap:
+            indexmap[pixel] = index
+            colourmap[index] = pixel
+        else:
+            print("%i index already registered (%i)" % (index, pixel))
+            return
+
+
 def process_image(image):
     (w, h) = image.size
     data = image.getdata()
@@ -76,7 +89,18 @@ def process_image(image):
                 prev_pixel = None
 
             if not prev_pixel is None:
-                overwrite_pixels.append(((x, y), prev_pixel ^ pixel))
+                # convert to indexes
+                prev_index = indexmap[prev_pixel]
+                try:
+                    index = indexmap[pixel]
+                except KeyError as e:
+                    print('colour at (%i, %i) not found' % (x, y))
+                    raise e
+                new_index = prev_index ^ index
+                #print("%i ^ %i = %i" % (prev_index, index, new_index))
+                # back to colour
+                new_pixel = colourmap[new_index]
+                overwrite_pixels.append(((x, y), new_pixel))
         # change line after it is finished
         for coordinates, pixel in overwrite_pixels:
             image.putpixel(coordinates, pixel)
@@ -86,18 +110,7 @@ def process_image(image):
         raise ValueError('number of colours exceeded')
 
     path, filename = os.path.split(image.filename)
-    image.save(os.path.join(path, 'p_' + os.path.splitext(filename)[0] + '.png'))
-
-
-def inc(edges, pixels):
-    sorted_args = tuple(sorted(pixels))
-    if sorted_args in edges:
-        print("updated edge", sorted_args)
-        edges[sorted_args] += 1
-        #raise "a"
-    else:
-        print("created edge", sorted_args)
-        edges[sorted_args] = 1
+    image.save(os.path.join(path, 'p_' + os.path.splitext(filename)[0] + '.png'), colors=num_colours)
 
 
 def main():
@@ -130,7 +143,7 @@ def main():
         '--contains-palette',
         dest='contains_palette',
         action='store_true',
-        help='image contains palette (height + 1)',
+        help='image contains embedded palette in the first line (height + 1)',
     )
     parser.add_argument(
         '-t',
@@ -145,7 +158,6 @@ def main():
     args = parser.parse_args()
     num_colours = args.num_colours
     contains_palette = args.contains_palette
-    print('image palette: %s' % ('true' if contains_palette else 'false'))
 
     if args.test:
         process_image(FakeImage())
@@ -158,8 +170,9 @@ def main():
             if image.mode != 'P':
                 raise TypeError('not indexed image')
             try:
+                process_palette(image)
                 process_image(image)
-            except Exception as e:
+            except IOError as e:
                 print('image "%s" not saved: %s' % (image_name, str(e)))
 
 
