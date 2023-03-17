@@ -1,7 +1,15 @@
-# Run-length XOR encoder (or the hardware accelerated polygon fill method)
+# Running XOR encoder (or: the hardware accelerated polygon fill method)
 
-## What RLX does?
-RLX converts images to render them on the MSX2 blitter using [this](https://www.msx.org/forum/msx-talk/development/hardware-accelerated-polygon-fill-using-lmmm) method. It can be quite efficient compressing images rich in flat polygons, replacing the original image by a bunch of line segments (which are both easy to store and draw) and recreate the original image using the MSX2 hardware blitter (which is relatively fast). Imagine adventure games with lots of screens using this method.
+## What RX.py does?
+RX.py is a Python script that prepares images for rendering them on the MSX2 blitter using [this](https://www.msx.org/forum/msx-talk/development/hardware-accelerated-polygon-fill-using-lmmm) method described by Laurens Holst (Grauw). It can be quite efficient compressing images rich in flat polygons, replacing the original image by a bunch of line segments (which are both easy to store and draw) and recreate the original image using the MSX2 hardware blitter (which is relatively fast). Imagine writing adventure games with lots of screens using this method.
+
+For now RX.py requires indexed PNGs to work. But a SCREEN 8 version with RGB images is planned.
+
+## Everybody loves screenshots
+
+![RX.py encoded sample image](/docs/canvas1.png "RX.py encoded sample image")
+![Original image restored by the blitter](/docs/canvas2.png "Original image restored by the blitter")
+
 
 ## Reference
 [this thread](https://www.msx.org/forum/msx-talk/development/hardware-accelerated-polygon-fill-using-lmmm)

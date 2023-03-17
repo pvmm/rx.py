@@ -117,7 +117,7 @@ def main():
     global contains_palette
 
     parser = ArgumentParser(
-        description='PNG to RLX (Run-length XOR) encoder',
+        description='PNG to RX (Running XOR) encoder',
         epilog='Copyright (C) 2023 Pedro de Medeiros <pedro.medeiros@gmail.com>',
     )
 
