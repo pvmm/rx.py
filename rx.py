@@ -24,6 +24,7 @@
 import os
 from argparse import ArgumentParser
 from PIL import Image
+import cv2
 
 
 __version__ = '1.0'
@@ -146,13 +147,12 @@ def main():
         help='image contains embedded palette in the first line (height + 1)',
     )
     parser.add_argument(
-        '-t',
-        '--test',
-        dest='test',
+        '-d',
+        '--detect-line',
+        dest='detect_line',
         action='store_true',
-        help='run fake test image',
+        help='detect lines using OpenCV',
     )
-
 
     parser.add_argument('image', nargs='+', help='image or images to convert')
     args = parser.parse_args()
