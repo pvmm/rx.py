@@ -24,7 +24,9 @@
 import os
 from argparse import ArgumentParser
 from PIL import Image
+
 import cv2
+import numpy as np
 
 
 __version__ = '1.0'
@@ -34,41 +36,33 @@ colourmap = {}
 indexmap = {}
 
 
-class FakeImage:
-    def __init__(self):
-        self.filename = 'fake_image.png'
-        self.data = [1, 1, 1, 1, 2, 1, 4, 4, 1, 3, 1, 1, 1]
-        self.size = len(self.data), 1
-        self.old_data = list(self.data)
-
-    def getpixel(self, coordinates):
-        x, y = coordinates
-        return self.data[x + y * self.size[0]]
-
-    def putpixel(self, coordinates, value):
-        x, y = coordinates 
-        self.data[x + y * self.size[0]] = value
-
-    def getdata(self):
-        return self.data
-
-    def get_name(self):
-        return 'fake_image.png'
-
-    def save(self, name):
-        print('old data:', self.old_data)
-        print('new data:', self.data)
-
-
 def process_palette(image):
     for index in range(0, num_colours):
-        pixel = image.getpixel((index, 0))
+        pixel = image[0, index]
         if not pixel in indexmap:
             indexmap[pixel] = index
             colourmap[index] = pixel
         else:
             print("%i index already registered (%i)" % (index, pixel))
             return
+
+
+"""
+def create_mono(image, colour):
+    mask = cv2.inRange(img, np.array(colour), np.array(colour))
+    result = cv2.bitwise_and(image, image, mask=mask)
+    return result
+"""
+
+def create_mono(image, colour):
+    # Create new image with the specified colour only
+    new_img = Image.new('P', image.size, colour)
+
+    # Mask the new image using the original image
+    mask = image.point(lambda pixel: pixel == colour))
+    new_img.paste(image, mask=mask)
+
+    return new_img
 
 
 def process_image(image):
@@ -81,11 +75,11 @@ def process_image(image):
     print('image palette: %s' % ('true' if contains_palette else 'false'))
     for y in range(1 if contains_palette else 0, h):
         for x in range(0, w):
-            pixel = image.getpixel((x, y))
+            pixel = image[y, x]
             if not pixel in colours:
                 colours.append(pixel)
             if x > 0:
-                prev_pixel = image.getpixel((x - 1, y))
+                prev_pixel = image[y, x]
             else:
                 prev_pixel = None
 
@@ -101,17 +95,25 @@ def process_image(image):
                 #print("%i ^ %i = %i" % (prev_index, index, new_index))
                 # back to colour
                 new_pixel = colourmap[new_index]
-                overwrite_pixels.append(((x, y), new_pixel))
+                overwrite_pixels.append(((y, x), new_pixel))
         # change line after it is finished
         for coordinates, pixel in overwrite_pixels:
-            image.putpixel(coordinates, pixel)
+            y, x = coordinates
+            image[y, x] = pixel
         overwrite_pixels = []
 
     if len(colours) > num_colours:
         raise ValueError('number of colours exceeded')
 
-    path, filename = os.path.split(image.filename)
-    image.save(os.path.join(path, 'p_' + os.path.splitext(filename)[0] + '.png'), colors=num_colours)
+    # Convert to Pillow image format
+    pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    indexed = pil_image.convert('P', palette=Image.ADAPTIVE, colors=num_colours)
+
+    # Set path and filename
+    path, tmp = os.path.split(image.filename)
+    filename = 'p_' + os.path.splittext(tmp)[0] + '.xpm'
+    indexed.save(os.path.join(path, filename), colors=num_colours)
+    cv2.imwrite('output_image.jpg', result)
 
 
 def main():
@@ -159,21 +161,18 @@ def main():
     num_colours = args.num_colours
     contains_palette = args.contains_palette
 
-    if args.test:
-        process_image(FakeImage())
-    else:
-        for image_name in args.image:
-            try:
-                image = Image.open(image_name)
-            except IOError:
-                raise IOError('failed to open the image "%s"' % image_name)
-            if image.mode != 'P':
-                raise TypeError('not indexed image')
-            try:
-                process_palette(image)
-                process_image(image)
-            except IOError as e:
-                print('image "%s" not saved: %s' % (image_name, str(e)))
+    for image_name in args.image:
+        try:
+            image = cv2.imread(image_name)
+        except IOError:
+            raise IOError('failed to open the image "%s"' % image_name)
+        if image.mode != 'P':
+            raise TypeError('not indexed image')
+        try:
+            process_palette(image)
+            process_image(image)
+        except IOError as e:
+            print('image "%s" not saved: %s' % (image_name, str(e)))
 
 
 if __name__ == '__main__':
