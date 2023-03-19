@@ -39,22 +39,23 @@ def fix_palette(image, max_colours):
         image.putpalette(palette)
 
 
-def create_mono(image, colour):
-    # Create new image with the specified colour only
-    new_img = Image.new('P', image.size, colour)
+def recreate_original(image):
+    new_img = image.copy()
+    w, h = image.size
 
-    # Mask the new image using the original image
-    mask = image.point(lambda pixel: pixel == colour)
-    new_img.paste(image, mask=mask)
+    for y in range(0, h):
+        for x in range(1, w):
+            prev_pixel = new_img.getpixel((x - 1, y))
+            pixel = new_img.getpixel((x, y))
+            new_img.putpixel((x, y), prev_pixel ^ pixel)
 
-    return new_img
+    new_img.show()
 
 
 def process_image(image):
     w, h = image.size
     colours = []
     overwrite_pixels = []
-    edges = {}
 
     for y in range(0, h):
         for x in range(0, w):
@@ -78,11 +79,7 @@ def process_image(image):
     if len(colours) > num_colours:
         raise ValueError('number of colours exceeded')
 
-    # Set path and filename
-    path, tmp = os.path.split(image.filename)
-    new_path = os.path.join(path, 'p_' + os.path.splitext(tmp)[0] + '.png')
-    image.save(new_path, colors=num_colours)
-    return new_path
+    return image
 
 
 def main():
@@ -129,8 +126,12 @@ def main():
         if image.mode != 'P':
             raise TypeError('not indexed image')
         try:
-            new_name = process_image(image)
-            print('new image in "%s"' % new_name)
+            new_image = process_image(image)
+            recreate_original(new_image)
+            path, tmp = os.path.split(image.filename)
+            new_path = os.path.join(path, 'p_' + os.path.splitext(tmp)[0] + '.png')
+            new_image.save(new_path, colors=num_colours)
+            print('new image in "%s"' % new_path)
         except IOError as e:
             print('image "%s" not saved: %s' % (image_name, str(e)))
 
