@@ -55,26 +55,17 @@ def recreate_original(image):
 def process_image(image):
     w, h = image.size
     colours = []
-    overwrite_pixels = []
+    prev_pixel = pixel = 0
 
     for y in range(0, h):
-        for x in range(0, w):
+        prev_pixel = image.getpixel((0, y))
+
+        for x in range(1, w):
             pixel = image.getpixel((x, y))
+            image.putpixel((x, y), prev_pixel ^ pixel)
             if not pixel in colours:
                 colours.append(pixel)
-            if x > 0:
-                prev_pixel = image.getpixel((x - 1, y))
-            else:
-                prev_pixel = None
-
-            if not prev_pixel is None:
-                new_pixel = prev_pixel ^ pixel
-                overwrite_pixels.append(((x, y), new_pixel))
-        # change line after it is finished
-        for coordinates, pixel in overwrite_pixels:
-            x, y = coordinates
-            image.putpixel((x, y), pixel)
-        overwrite_pixels = []
+            prev_pixel = pixel
 
     if len(colours) > num_colours:
         raise ValueError('number of colours exceeded')
