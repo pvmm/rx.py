@@ -21,6 +21,7 @@
 # THE SOFTWARE.
 #
 
+import math
 import os
 from argparse import ArgumentParser
 from PIL import Image
@@ -90,22 +91,17 @@ def main():
         help='define the number of colours in the image',
     )
     parser.add_argument(
-        '-r',
-        '--rgb',
-        dest='rgb',
+        '-s',
+        '--show-result',
+        dest='show_result',
         action='store_true',
-        help='convert to RGB image (default: indexed)',
-    )
-    parser.add_argument(
-        '-d',
-        '--detect-line',
-        dest='detect_line',
-        action='store_true',
-        help='detect lines using OpenCV',
+        help='show result at the end',
     )
 
     parser.add_argument('image', nargs='+', help='image or images to convert')
     args = parser.parse_args()
+    if math.log2(args.num_colours) != int(math.log2(args.num_colours)):
+        raise ValueError('number of colours should be a power of 2')
     num_colours = args.num_colours
 
     for image_name in args.image:
@@ -118,7 +114,10 @@ def main():
             raise TypeError('not indexed image')
         try:
             new_image = process_image(image)
-            recreate_original(new_image)
+            if args.show_result:
+                new_image.show()
+            if args.show_result:
+                recreate_original(new_image)
             path, tmp = os.path.split(image.filename)
             new_path = os.path.join(path, 'p_' + os.path.splitext(tmp)[0] + '.png')
             new_image.save(new_path, colors=num_colours)
