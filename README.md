@@ -3,7 +3,7 @@
 ## What RX.py does?
 RX.py is a Python script that prepares images for rendering them on the MSX2 blitter using [this](https://www.msx.org/forum/msx-talk/development/hardware-accelerated-polygon-fill-using-lmmm) method described by Laurens Holst (Grauw). It can be quite efficient compressing images rich in flat polygons, replacing the original image by a bunch of line segments (which are both easy to store and draw) and recreate the original image using the MSX2 hardware blitter (which is relatively fast). Imagine writing adventure games with lots of screens using this method.
 
-For now RX.py requires indexed PNGs to work. But a SCREEN 8 version with RGB images is planned.
+For now RX.py generates SCREEN 5 compatible images, but a SCREEN 8 version is planned.
 
 ## Everybody loves screenshots
 

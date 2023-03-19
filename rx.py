@@ -21,6 +21,7 @@
 # THE SOFTWARE.
 #
 
+import sys
 import math
 import os
 from argparse import ArgumentParser
@@ -31,13 +32,28 @@ __version__ = '1.0'
 num_colours = 16
 
 
-def fix_palette(image, max_colours):
-    palette = image.getpalette()
-    print(f'palette size: {len(palette) / 3}')
+def fix_palette_size(palette, max_colours):
+    print(f'real palette size: {len(palette) // 3}')
     if len(palette) // 3 < max_colours:
         palette = palette + [0, 0, 0] * (max_colours - len(palette) // 3)
-        print(f'new palette size: {len(palette) / 3}')
-        image.putpalette(palette)
+        print(f'new palette size: {len(palette) // 3} (padded)')
+    return palette
+
+
+def create_pal_image(image, max_colours):
+    new_img = image.convert('P', palette=Image.Palette.ADAPTIVE, colors=max_colours)
+    p = new_img.getpalette()
+    tmp_palette = []
+
+    # fix palette ordering
+    for p1, p2, p3 in zip(p[0::3], p[1::3], p[2::3]):
+        if not (p1, p2, p3) in tmp_palette:
+            tmp_palette.append((p1, p2, p3))
+        #if not (p1, p2, p3) in tmp_palette:
+        #    tmp_palette.insert(0, (p1, p2, p3))
+    new_palette = [item for rgb in tmp_palette for item in rgb]
+    new_img.putpalette(new_palette)
+    return new_img
 
 
 def recreate_original(image):
@@ -64,8 +80,6 @@ def process_image(image):
         for x in range(1, w):
             pixel = image.getpixel((x, y))
             image.putpixel((x, y), prev_pixel ^ pixel)
-            if not pixel in colours:
-                colours.append(pixel)
             prev_pixel = pixel
 
     if len(colours) > num_colours:
@@ -88,7 +102,15 @@ def main():
         dest='num_colours',
         default=16,
         type=int,
-        help='define the number of colours in the image',
+        help='define the number of colours in the image (default: 16)',
+    )
+    parser.add_argument(
+        '-r',
+        '--remap-black',
+        dest='remap_black',
+        default=0,
+        type=int,
+        help='remap black colour in the palette (default: 0)',
     )
     parser.add_argument(
         '-s',
@@ -103,24 +125,28 @@ def main():
     if math.log2(args.num_colours) != int(math.log2(args.num_colours)):
         raise ValueError('number of colours should be a power of 2')
     num_colours = args.num_colours
+    print(f'number of colors: {num_colours}')
 
     for image_name in args.image:
         try:
             image = Image.open(image_name)
-            fix_palette(image, num_colours)
         except IOError:
             raise IOError('failed to open the image "%s"' % image_name)
-        if image.mode != 'P':
-            raise TypeError('not indexed image')
+        if image.mode in ['RGB', 'RGBA']:
+            image = create_pal_image(image, num_colours)
+            image.putpalette(fix_palette_size(image.getpalette(), num_colours))
+        elif image.mode == 'P':
+            image.putpalette(fix_palette_size(image.getpalette(), num_colours))
+        else:
+            raise ValueError('unknown image mode')
         try:
-            new_image = process_image(image)
+            image = process_image(image)
             if args.show_result:
-                new_image.show()
-            if args.show_result:
-                recreate_original(new_image)
-            path, tmp = os.path.split(image.filename)
+                image.show()
+                recreate_original(image)
+            path, tmp = os.path.split(image_name)
             new_path = os.path.join(path, 'p_' + os.path.splitext(tmp)[0] + '.png')
-            new_image.save(new_path, colors=num_colours)
+            image.save(new_path, colors=num_colours)
             print('new image in "%s"' % new_path)
         except IOError as e:
             print('image "%s" not saved: %s' % (image_name, str(e)))
