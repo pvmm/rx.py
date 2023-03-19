@@ -28,31 +28,35 @@ from PIL import Image
 
 __version__ = '1.0'
 num_colours = 16
-contains_palette = False
-colourmap = {}
-indexmap = {}
 
 
-def process_palette(image):
-    for index in range(0, num_colours):
-        pixel = image.getpixel((index, 0))
-        if not pixel in indexmap:
-            indexmap[pixel] = index
-            colourmap[index] = pixel
-        else:
-            print("%i index already registered (%i)" % (index, pixel))
-            return
+def fix_palette(image, max_colours):
+    palette = image.getpalette()
+    print(f'palette size: {len(palette) / 3}')
+    if len(palette) // 3 < max_colours:
+        palette = palette + [0, 0, 0] * (max_colours - len(palette) // 3)
+        print(f'new palette size: {len(palette) / 3}')
+        image.putpalette(palette)
+
+
+def create_mono(image, colour):
+    # Create new image with the specified colour only
+    new_img = Image.new('P', image.size, colour)
+
+    # Mask the new image using the original image
+    mask = image.point(lambda pixel: pixel == colour)
+    new_img.paste(image, mask=mask)
+
+    return new_img
 
 
 def process_image(image):
-    (w, h) = image.size
-    data = image.getdata()
+    w, h = image.size
     colours = []
     overwrite_pixels = []
     edges = {}
 
-    print('image palette: %s' % ('true' if contains_palette else 'false'))
-    for y in range(1 if contains_palette else 0, h):
+    for y in range(0, h):
         for x in range(0, w):
             pixel = image.getpixel((x, y))
             if not pixel in colours:
@@ -63,32 +67,25 @@ def process_image(image):
                 prev_pixel = None
 
             if not prev_pixel is None:
-                # convert to indexes
-                prev_index = indexmap[prev_pixel]
-                try:
-                    index = indexmap[pixel]
-                except KeyError as e:
-                    print('colour at (%i, %i) not found' % (x, y))
-                    raise e
-                new_index = prev_index ^ index
-                # back to colour
-                new_pixel = colourmap[new_index]
+                new_pixel = prev_pixel ^ pixel
                 overwrite_pixels.append(((x, y), new_pixel))
         # change line after it is finished
         for coordinates, pixel in overwrite_pixels:
-            image.putpixel(coordinates, pixel)
+            x, y = coordinates
+            image.putpixel((x, y), pixel)
         overwrite_pixels = []
 
     if len(colours) > num_colours:
         raise ValueError('number of colours exceeded')
 
-    path, filename = os.path.split(image.filename)
-    image.save(os.path.join(path, 'p_' + os.path.splitext(filename)[0] + '.png'), colors=num_colours)
+    # Set path and filename
+    path, tmp = os.path.split(image.filename)
+    new_path = os.path.join(path, 'p_' + os.path.splitext(tmp)[0] + '.png')
+    image.save(new_path, colors=num_colours)
+    return new_path
 
 
 def main():
-    global contains_palette
-
     parser = ArgumentParser(
         description='PNG to RX (Running XOR) encoder',
         epilog='Copyright (C) 2023 Pedro de Medeiros <pedro.medeiros@gmail.com>',
@@ -112,36 +109,28 @@ def main():
         help='convert to RGB image (default: indexed)',
     )
     parser.add_argument(
-        '-c',
-        '--contains-palette',
-        dest='contains_palette',
+        '-d',
+        '--detect-line',
+        dest='detect_line',
         action='store_true',
-        help='image contains embedded palette in the first line (height + 1)',
+        help='detect lines using OpenCV',
     )
-    parser.add_argument(
-        '-t',
-        '--test',
-        dest='test',
-        action='store_true',
-        help='run fake test image',
-    )
-
 
     parser.add_argument('image', nargs='+', help='image or images to convert')
     args = parser.parse_args()
     num_colours = args.num_colours
-    contains_palette = args.contains_palette
 
     for image_name in args.image:
         try:
             image = Image.open(image_name)
+            fix_palette(image, num_colours)
         except IOError:
             raise IOError('failed to open the image "%s"' % image_name)
         if image.mode != 'P':
             raise TypeError('not indexed image')
         try:
-            process_palette(image)
-            process_image(image)
+            new_name = process_image(image)
+            print('new image in "%s"' % new_name)
         except IOError as e:
             print('image "%s" not saved: %s' % (image_name, str(e)))
 
