@@ -25,27 +25,45 @@ import os
 from argparse import ArgumentParser
 from PIL import Image
 
-import cv2
+#import cv2
 import numpy as np
 
 
 __version__ = '1.0'
 num_colours = 16
 contains_palette = False
-colourmap = {}
+pixelmap = {}
 indexmap = {}
 
 
-def process_palette(image):
-    for index in range(0, num_colours):
-        pixel = image[0, index]
-        if not pixel in indexmap:
-            indexmap[pixel] = index
-            colourmap[index] = pixel
-        else:
-            print("%i index already registered (%i)" % (index, pixel))
-            return
-
+def process_palette(image, max_colours):
+    w, h = image.size
+    palette = image.getpalette()
+    print(f'palette size: {len(palette) // 3}')
+    index = 1
+    max_pixel = 0
+    for y in range(0, h):
+        for x in range(0, w):
+            pixel = image.getpixel((x, y))
+            rgb = palette[pixel * 3:pixel * 3 + 3]
+            max_pixel = max(pixel, max_pixel)
+            # detect black and reserve space for it
+            if rgb == [0, 0, 0] and not pixel in indexmap:
+                print("index 0 registered to color %i (%i, %i, %i)" % (pixel, *rgb))
+                indexmap[pixel] = 0
+                pixelmap[0] = pixel
+            elif not pixel in indexmap:
+                print("index %i registered to color %i (%i, %i, %i)" % (index, pixel, *rgb))
+                indexmap[pixel] = index
+                pixelmap[index] = pixel
+                index += 1
+    if index < max_colours - 1:
+        for tmp in range(index, max_colours):
+            max_pixel += 1
+            rgb = palette[max_pixel * 3:max_pixel * 3 + 3]
+            print("index %i registered to color %i" % (tmp, max_pixel))
+            #indexmap[-tmp] = index
+            pixelmap[tmp] = max_pixel
 
 """
 def create_mono(image, colour):
@@ -59,15 +77,14 @@ def create_mono(image, colour):
     new_img = Image.new('P', image.size, colour)
 
     # Mask the new image using the original image
-    mask = image.point(lambda pixel: pixel == colour))
+    mask = image.point(lambda pixel: pixel == colour)
     new_img.paste(image, mask=mask)
 
     return new_img
 
 
 def process_image(image):
-    (w, h) = image.size
-    data = image.getdata()
+    w, h = image.size
     colours = []
     overwrite_pixels = []
     edges = {}
@@ -75,11 +92,11 @@ def process_image(image):
     print('image palette: %s' % ('true' if contains_palette else 'false'))
     for y in range(1 if contains_palette else 0, h):
         for x in range(0, w):
-            pixel = image[y, x]
+            pixel = image.getpixel((x, y))
             if not pixel in colours:
                 colours.append(pixel)
             if x > 0:
-                prev_pixel = image[y, x]
+                prev_pixel = image.getpixel((x - 1, y))
             else:
                 prev_pixel = None
 
@@ -92,28 +109,24 @@ def process_image(image):
                     print('colour at (%i, %i) not found' % (x, y))
                     raise e
                 new_index = prev_index ^ index
-                #print("%i ^ %i = %i" % (prev_index, index, new_index))
+                #print("new index = %i ^ %i = %i" % (prev_index, index, new_index))
                 # back to colour
-                new_pixel = colourmap[new_index]
-                overwrite_pixels.append(((y, x), new_pixel))
+                new_pixel = pixelmap[new_index]
+                overwrite_pixels.append(((x, y), new_pixel))
         # change line after it is finished
         for coordinates, pixel in overwrite_pixels:
-            y, x = coordinates
-            image[y, x] = pixel
+            x, y = coordinates
+            image.putpixel((x, y), pixel)
         overwrite_pixels = []
 
     if len(colours) > num_colours:
         raise ValueError('number of colours exceeded')
 
-    # Convert to Pillow image format
-    pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    indexed = pil_image.convert('P', palette=Image.ADAPTIVE, colors=num_colours)
-
     # Set path and filename
     path, tmp = os.path.split(image.filename)
-    filename = 'p_' + os.path.splittext(tmp)[0] + '.xpm'
-    indexed.save(os.path.join(path, filename), colors=num_colours)
-    cv2.imwrite('output_image.jpg', result)
+    new_path = os.path.join(path, 'p_' + os.path.splitext(tmp)[0] + '.png')
+    image.save(new_path, colors=num_colours)
+    return new_path
 
 
 def main():
@@ -163,14 +176,16 @@ def main():
 
     for image_name in args.image:
         try:
-            image = cv2.imread(image_name)
+            image = Image.open(image_name)
+            #image = cv2.imread(image_name)
         except IOError:
             raise IOError('failed to open the image "%s"' % image_name)
         if image.mode != 'P':
             raise TypeError('not indexed image')
         try:
-            process_palette(image)
-            process_image(image)
+            process_palette(image, num_colours)
+            new_name = process_image(image)
+            print('new image in "%s"' % new_name)
         except IOError as e:
             print('image "%s" not saved: %s' % (image_name, str(e)))
 
