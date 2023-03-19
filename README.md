@@ -15,7 +15,7 @@ For now RX.py generates SCREEN 5 compatible images, but a SCREEN 8 version is pl
 [this thread](https://www.msx.org/forum/msx-talk/development/hardware-accelerated-polygon-fill-using-lmmm)
 
 ## TODO list:
-* Output SC5 raw format directly;
+* ~Output SC5 raw format directly;~
 * Output SC8 raw format directly;
 * Output screen as a MSX-BASIC program;
 * Output V9990 formats;

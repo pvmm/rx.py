@@ -24,6 +24,7 @@
 import sys
 import math
 import os
+import struct
 from argparse import ArgumentParser
 from PIL import Image
 
@@ -69,6 +70,30 @@ def recreate_original(image):
     new_img.show()
 
 
+def save_image(image, filename, max_colours):
+    path, tmp = os.path.split(image.filename)
+    new_path = os.path.join(path, filename % os.path.splitext(tmp)[0])
+    image.save(new_path, colors=max_colours)
+    print('new image in "%s"' % new_path)
+
+
+def write_screen5(image, filename):
+    w, h = image.size
+    path, tmp = os.path.split(image.filename)
+    new_path = os.path.join(path, filename % os.path.splitext(tmp)[0])
+    print(f'writing raw MSX image file to "{new_path}"') 
+    with open(new_path, 'wb') as file:
+        file.write(struct.pack("<B", w & 0xff))
+        file.write(struct.pack("<B", w >> 8))
+        file.write(struct.pack("<B", h & 0xff))
+        file.write(struct.pack("<B", h >> 8))
+        for y in range(0, h):
+            for x in range(0, w, 2):
+                pixel = image.getpixel((x, y))
+                next_pixel = image.getpixel((x + 1, y))
+                file.write(struct.pack("<B", (pixel << 4) | next_pixel))
+
+
 def process_image(image):
     w, h = image.size
     colours = []
@@ -89,6 +114,8 @@ def process_image(image):
 
 
 def main():
+    global num_colours
+
     parser = ArgumentParser(
         description='PNG to RX (Running XOR) encoder',
         epilog='Copyright (C) 2023 Pedro de Medeiros <pedro.medeiros@gmail.com>',
@@ -98,11 +125,11 @@ def main():
         '--version', action='version', version='%(prog)s ' + __version__
     )
     parser.add_argument(
-        '--num-colours',
-        dest='num_colours',
-        default=16,
-        type=int,
-        help='define the number of colours in the image (default: 16)',
+        '-5',
+        '--screen5',
+        dest='screen5',
+        action='store_true',
+        help='activate SCREEN 5 mode',
     )
     parser.add_argument(
         '-r',
@@ -122,9 +149,12 @@ def main():
 
     parser.add_argument('image', nargs='+', help='image or images to convert')
     args = parser.parse_args()
-    if math.log2(args.num_colours) != int(math.log2(args.num_colours)):
+
+    # set number of colours
+    if args.screen5:
+        num_colours = 16
+    if math.log2(num_colours) != int(math.log2(num_colours)):
         raise ValueError('number of colours should be a power of 2')
-    num_colours = args.num_colours
     print(f'number of colors: {num_colours}')
 
     for image_name in args.image:
@@ -144,10 +174,10 @@ def main():
             if args.show_result:
                 image.show()
                 recreate_original(image)
-            path, tmp = os.path.split(image_name)
-            new_path = os.path.join(path, 'p_' + os.path.splitext(tmp)[0] + '.png')
-            image.save(new_path, colors=num_colours)
-            print('new image in "%s"' % new_path)
+            if args.screen5:
+                write_screen5(image, '%s.sc5')
+            else:
+                save_image(image, 'p_%s.png', num_colours)
         except IOError as e:
             print('image "%s" not saved: %s' % (image_name, str(e)))
 
