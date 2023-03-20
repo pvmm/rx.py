@@ -34,6 +34,7 @@ num_colours = 16
 
 
 def fix_palette_size(palette, max_colours):
+    """palettes that don't declare the whole 4bit space (16 entries) will cause Gimp to crash"""
     print(f'real palette size: {len(palette) // 3}')
     if len(palette) // 3 < max_colours:
         palette = palette + [0, 0, 0] * (max_colours - len(palette) // 3)
@@ -42,22 +43,57 @@ def fix_palette_size(palette, max_colours):
 
 
 def create_pal_image(image, max_colours):
+    """RGB to PAL conversion"""
     new_img = image.convert('P', palette=Image.Palette.ADAPTIVE, colors=max_colours)
     p = new_img.getpalette()
     tmp_palette = []
 
     # fix palette ordering
-    for p1, p2, p3 in zip(p[0::3], p[1::3], p[2::3]):
-        if not (p1, p2, p3) in tmp_palette:
-            tmp_palette.append((p1, p2, p3))
-        #if not (p1, p2, p3) in tmp_palette:
-        #    tmp_palette.insert(0, (p1, p2, p3))
+    for r, g, b in zip(p[0::3], p[1::3], p[2::3]):
+        if not (r, g, b) in tmp_palette:
+            tmp_palette.append((r, g, b))
+    if len(tmp_palette) > max_colours:
+        raise ValueError('generated palette is too big')
+    # flatten list of tuples
     new_palette = [item for rgb in tmp_palette for item in rgb]
     new_img.putpalette(new_palette)
     return new_img
 
 
+def debug_palette(image, max_colours):
+    p = image.getpalette()[0 : max_colours * 3]
+    for n, (r, g, b) in enumerate(zip(p[0::3], p[1::3], p[2::3])):
+        print(f'colour {n} = ({r}, {g}, {b})')
+    print('---------')
+
+
+def fix_colour_bleed(image, max_colours):
+    """replace palette position 0 which causes colour bleed"""
+    p = image.getpalette()
+    reallocated = None
+    # check if zeroth index can be reallocated
+    for n, (r, g, b) in enumerate(zip(p[0::3], p[1::3], p[2::3])):
+        if not n:
+            zeroth = r, g, b
+        elif zeroth == (r, g, b):
+            reallocated = n
+    if reallocated == None:
+        print('zeroth colour not found: reallocating')
+        if len(p) / 3 == max_colours:
+            raise ValueError('need to reallocate zeroth colour, but palette is full')
+        # shift palette colours up to keep it updated
+        dest_map = [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+        image = image.remap_palette(dest_map)
+    else:
+        # reuse preallocated colour
+        dest_map = [reallocated]
+        image.remap_palette(dest_map)
+
+    return image
+
+
 def recreate_original(image):
+    """popup window with results""" 
     new_img = image.copy()
     w, h = image.size
 
@@ -70,19 +106,39 @@ def recreate_original(image):
     new_img.show()
 
 
-def save_image(image, filename, max_colours):
-    path, tmp = os.path.split(image.filename)
-    new_path = os.path.join(path, filename % os.path.splitext(tmp)[0])
-    image.save(new_path, colors=max_colours)
+def create_filename(old_name, name_mask):
+    path, tmp = os.path.split(old_name)
+    return os.path.join(path, name_mask % os.path.splitext(tmp)[0])
+
+
+def save_image(image, max_colours, old_name, name_mask='%s'):
+    image.save(create_filename(old_name, name_mask), colors=max_colours)
     print('new image in "%s"' % new_path)
 
 
-def write_screen5(image, filename):
+def write_screen5(image, max_colours, old_name, name_mask='%s'):
     w, h = image.size
-    path, tmp = os.path.split(image.filename)
-    new_path = os.path.join(path, filename % os.path.splitext(tmp)[0])
-    print(f'writing raw MSX image file to "{new_path}"') 
-    with open(new_path, 'wb') as file:
+    sc5_name = create_filename(old_name, name_mask + '.sc5')
+    bas_name = create_filename(old_name, name_mask + '.bas')
+
+    print(f'writing BASIC MSX image loader to "{bas_name}"') 
+    with open(bas_name, 'w') as file:
+        p = image.getpalette()[3 : max_colours * 3]
+        print('10 SCREEN 5', end='\r\n', file=file)
+        print('20 COLOR 15,0,0', end='\r\n', file=file)
+        for n, (r, g, b) in enumerate(zip(p[0 : : 3], p[1 : : 3], p[2 : : 3]), start=1):
+            print(f'{10 * n + 20} COLOR=({n},{r * 7 // 0xff},{g * 7 // 0xff},{b * 7 // 0xff})', end='\r\n', file=file)
+        n = n * 10 + 30
+        print(f'{n} COPY "{os.path.split(sc5_name.upper())[1]}" TO (0,0),0', end='\r\n', file=file)
+        n += 10
+        print(f'{n} IF INKEY$="" GOTO {n}', end='\r\n', file=file)
+        n += 10
+        print(f'{n} COPY(0,0)-({w - 1},{h}),0 TO (1,0),0,XOR', end='\r\n', file=file)
+        n += 10
+        print(f'{n} IF INKEY$="" GOTO {n}', end='\r\n', file=file)
+
+    print(f'writing raw MSX image file to "{sc5_name}"') 
+    with open(sc5_name, 'wb') as file:
         file.write(struct.pack("<B", w & 0xff))
         file.write(struct.pack("<B", w >> 8))
         file.write(struct.pack("<B", h & 0xff))
@@ -164,20 +220,22 @@ def main():
             raise IOError('failed to open the image "%s"' % image_name)
         if image.mode in ['RGB', 'RGBA']:
             image = create_pal_image(image, num_colours)
-            image.putpalette(fix_palette_size(image.getpalette(), num_colours))
-        elif image.mode == 'P':
-            image.putpalette(fix_palette_size(image.getpalette(), num_colours))
-        else:
+        elif image.mode != 'P':
             raise ValueError('unknown image mode')
+        # move zeroth colour to new position
+        image = fix_colour_bleed(image, num_colours)
+        # fix short palette
+        image.putpalette(fix_palette_size(image.getpalette(), num_colours))
         try:
             image = process_image(image)
             if args.show_result:
                 image.show()
                 recreate_original(image)
             if args.screen5:
-                write_screen5(image, '%s.sc5')
+                #debug_palette(image, num_colours)
+                write_screen5(image, num_colours, image_name)
             else:
-                save_image(image, 'p_%s.png', num_colours)
+                save_image(image, num_colours, image_name, 'p_%s.png')
         except IOError as e:
             print('image "%s" not saved: %s' % (image_name, str(e)))
 

@@ -8,7 +8,7 @@ For now RX.py generates SCREEN 5 compatible images, but a SCREEN 8 version is pl
 ## Everybody loves screenshots
 
 ![RX.py encoded sample image](/docs/canvas1.png "RX.py encoded sample image")
-![Original image restored by the blitter](/docs/canvas2.png "Original image restored by the blitter")
+![Original image restored by the blitter on MSX2](/docs/canvas2.png "Original image restored by the blitter on MSX2")
 
 
 ## Reference
@@ -17,9 +17,9 @@ For now RX.py generates SCREEN 5 compatible images, but a SCREEN 8 version is pl
 ## TODO list:
 * ~Output SC5 raw format directly;~
 * Output SC8 raw format directly;
-* Output screen as a MSX-BASIC program;
+* ~Output screen as a MSX-BASIC program;~
 * Output V9990 formats;
 * Add line detection;
-* Implement Bresenham's modified line algorithm;
+* Implement Bresenham's modified line algorithm (Python and C);
 * Write screen renderer in Python;
 * Write screen renderer in C for the MSX;
