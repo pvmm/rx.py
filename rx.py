@@ -121,7 +121,7 @@ def write_screen5(image, max_colours, old_name, name_mask='%s'):
     sc5_name = create_filename(old_name, name_mask + '.sc5')
     bas_name = create_filename(old_name, name_mask + '.bas')
 
-    print(f'writing BASIC MSX image loader to "{bas_name}"') 
+    print(f'writing MSX-BASIC image loader to "{bas_name}"') 
     with open(bas_name, 'w') as file:
         p = image.getpalette()[3 : max_colours * 3]
         print('10 SCREEN 5', end='\r\n', file=file)
@@ -187,20 +187,19 @@ def main():
         action='store_true',
         help='activate SCREEN 5 mode',
     )
-    parser.add_argument(
-        '-r',
-        '--remap-black',
-        dest='remap_black',
-        default=0,
-        type=int,
-        help='remap black colour in the palette (default: 0)',
-    )
+    #parser.add_argument(
+    #    '-r',
+    #    '--reorder-palette',
+    #    dest='reorder_palette',
+    #    action='store_true',
+    #    help='put palette in ascending order',
+    #)
     parser.add_argument(
         '-s',
         '--show-result',
         dest='show_result',
         action='store_true',
-        help='show result at the end',
+        help='show result at the end in a popup',
     )
 
     parser.add_argument('image', nargs='+', help='image or images to convert')

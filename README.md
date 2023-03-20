@@ -5,6 +5,24 @@ RX.py is a Python script that prepares images for rendering them on the MSX2 bli
 
 For now RX.py generates SCREEN 5 compatible images, but a SCREEN 8 version is planned.
 
+## Parameters
+```
+usage: rx.py [-h] [--version] [-5] [-s] image [image ...]
+
+PNG to RX (Running XOR) encoder
+
+positional arguments:
+  image              image or images to convert
+
+options:
+  -h, --help         show this help message and exit
+  --version          show program's version number and exit
+  -5, --screen5      activate SCREEN 5 mode
+  -s, --show-result  show result at the end in a popup
+
+Copyright (C) 2023 Pedro de Medeiros <pedro.medeiros@gmail.com>
+```
+
 ## Everybody loves screenshots
 
 ![RX.py encoded sample image](/docs/canvas1.png "RX.py encoded sample image")
@@ -23,3 +41,4 @@ For now RX.py generates SCREEN 5 compatible images, but a SCREEN 8 version is pl
 * Implement Bresenham's modified line algorithm (Python and C);
 * Write screen renderer in Python;
 * Write screen renderer in C for the MSX;
+
