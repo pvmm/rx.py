@@ -97,15 +97,14 @@ def write_screen5(image, filename):
 def process_image(image):
     w, h = image.size
     colours = []
-    prev_pixel = pixel = 0
 
-    for y in range(0, h):
-        prev_pixel = image.getpixel((0, y))
-
-        for x in range(1, w):
+    for x in range(0, w):
+        top_pixel = image.getpixel((x, 0))
+        for y in range(1, h):
             pixel = image.getpixel((x, y))
-            image.putpixel((x, y), prev_pixel ^ pixel)
-            prev_pixel = pixel
+            image.putpixel((x, y), top_pixel ^ pixel)
+            top_pixel = pixel
+        image.putpixel((x, y + 1), top_pixel)
 
     if len(colours) > num_colours:
         raise ValueError('number of colours exceeded')
