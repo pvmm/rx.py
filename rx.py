@@ -31,11 +31,15 @@ from PIL import Image
 
 __version__ = '1.0'
 num_colours = 16
+HORIZONTAL = 1
+VERTICAL = 2
+BOTH = 3
 
 
 def fix_palette_size(palette, max_colours):
     """palettes that don't declare the whole 4bit space (16 entries) will cause Gimp to crash"""
-    print(f'real palette size: {len(palette) // 3}')
+    if len(palette) // 3 < max_colours:
+        print(f'current palette size: {len(palette) // 3}')
     if len(palette) // 3 < max_colours:
         palette = palette + [0, 0, 0] * (max_colours - len(palette) // 3)
         print(f'new palette size: {len(palette) // 3} (padded)')
@@ -92,16 +96,24 @@ def fix_colour_bleed(image, max_colours):
     return image
 
 
-def recreate_original(image):
+def recreate_original(image, sweep_mode=HORIZONTAL):
     """popup window with results""" 
     new_img = image.copy()
     w, h = image.size
 
-    for y in range(0, h):
-        for x in range(1, w):
-            prev_pixel = new_img.getpixel((x - 1, y))
-            pixel = new_img.getpixel((x, y))
-            new_img.putpixel((x, y), prev_pixel ^ pixel)
+    if sweep_mode & VERTICAL:
+        for x in range(0, w):
+            for y in range(1, h):
+                prev_pixel = new_img.getpixel((x, y - 1))
+                pixel = new_img.getpixel((x, y))
+                new_img.putpixel((x, y), prev_pixel ^ pixel)
+
+    if sweep_mode & HORIZONTAL:
+        for y in range(0, h):
+            for x in range(1, w):
+                prev_pixel = new_img.getpixel((x - 1, y))
+                pixel = new_img.getpixel((x, y))
+                new_img.putpixel((x, y), prev_pixel ^ pixel)
 
     new_img.show()
 
@@ -112,11 +124,12 @@ def create_filename(old_name, name_mask):
 
 
 def save_image(image, max_colours, old_name, name_mask='%s'):
-    image.save(create_filename(old_name, name_mask), colors=max_colours)
-    print('new image in "%s"' % new_path)
+    image_path = create_filename(old_name, name_mask)
+    image.save(image_path, colors=max_colours)
+    print('new image in "%s"' % image_path)
 
 
-def write_screen5(image, max_colours, old_name, name_mask='%s'):
+def write_screen5(image, max_colours, old_name, sweep_mode=HORIZONTAL, name_mask='%s'):
     w, h = image.size
     sc5_name = create_filename(old_name, name_mask + '.sc5')
     bas_name = create_filename(old_name, name_mask + '.bas')
@@ -132,8 +145,12 @@ def write_screen5(image, max_colours, old_name, name_mask='%s'):
         print(f'{n} COPY "{os.path.split(sc5_name.upper())[1]}" TO (0,0),0', end='\r\n', file=file)
         n += 10
         print(f'{n} IF INKEY$="" GOTO {n}', end='\r\n', file=file)
-        n += 10
-        print(f'{n} COPY(0,0)-({w - 1},{h}),0 TO (1,0),0,XOR', end='\r\n', file=file)
+        if sweep_mode & VERTICAL:
+            n += 10
+            print(f'{n} COPY(0,0)-({w},{h - 2}),0 TO (0,1),0,XOR', end='\r\n', file=file)
+        if sweep_mode & HORIZONTAL:
+            n += 10
+            print(f'{n} COPY(0,0)-({w - 1},{h}),0 TO (1,0),0,XOR', end='\r\n', file=file)
         n += 10
         print(f'{n} IF INKEY$="" GOTO {n}', end='\r\n', file=file)
 
@@ -150,7 +167,7 @@ def write_screen5(image, max_colours, old_name, name_mask='%s'):
                 file.write(struct.pack("<B", (pixel << 4) | next_pixel))
 
 
-def process_image(image):
+def process_image_h(image):
     w, h = image.size
     colours = []
     prev_pixel = pixel = 0
@@ -169,6 +186,28 @@ def process_image(image):
     return image
 
 
+def process_image_v(image):
+    w, h = image.size
+    colours = []
+
+    for x in range(0, w):
+        top_pixel = image.getpixel((x, 0))
+        for y in range(1, h):
+            pixel = image.getpixel((x, y))
+            image.putpixel((x, y), top_pixel ^ pixel)
+            top_pixel = pixel
+        #image.putpixel((x, y + 1), top_pixel)
+
+    if len(colours) > num_colours:
+        raise ValueError('number of colours exceeded')
+
+    return image
+
+
+def process_image(image):
+    return process_image_v(process_image_h(image))
+
+
 def main():
     global num_colours
 
@@ -179,6 +218,20 @@ def main():
 
     parser.add_argument(
         '--version', action='version', version='%(prog)s ' + __version__
+    )
+    parser.add_argument(
+        '-v',
+        '--vertical',
+        dest='vertical',
+        action='store_true',
+        help='use vertical sweep only',
+    )
+    parser.add_argument(
+       '-b',
+        '--both',
+        dest='both',
+        action='store_true',
+        help='use both horizontal and vertical sweep (default: horizontal)',
     )
     parser.add_argument(
         '-5',
@@ -205,6 +258,8 @@ def main():
     parser.add_argument('image', nargs='+', help='image or images to convert')
     args = parser.parse_args()
 
+    # sweep mode
+    sweep_mode = ((args.both and BOTH) | (args.vertical and VERTICAL)) or HORIZONTAL
     # set number of colours
     if args.screen5:
         num_colours = 16
@@ -231,10 +286,10 @@ def main():
             image = process_image(image)
             if args.show_result:
                 image.show()
-                recreate_original(image)
+                recreate_original(image, sweep_mode=BOTH)
             if args.screen5:
                 #debug_palette(image, num_colours)
-                write_screen5(image, num_colours, image_name)
+                write_screen5(image, num_colours, image_name, sweep_mode=BOTH)
             else:
                 save_image(image, num_colours, image_name, 'p_%s.png')
         except IOError as e:
