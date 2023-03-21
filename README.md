@@ -31,12 +31,14 @@ RX.py converts this:<br/>
 ![Original image restored by the blitter on MSX2](/docs/canvas2.png "Original image restored by the blitter on MSX2")
 <br/>into this:<br/>
 ![RX.py encoded sample image](/docs/canvas1.png "RX.py encoded sample image")
-<br/>and going back to the original is as simple as calling a MSX-BASIC screen COPY operation (sample BASIC code included).
+<br/>and going back to the original is as simple as calling a MSX-BASIC screen COPY operation (sample BASIC code included). Or two COPYs if you use both vertical and horizontal sweep operations.
+![RX.py encoded sample image (horizontal and vertical sweep)](/docs/canvas3.png "RX.py encoded sample image (both horizontal and vertical sweep)")
 
 ## Reference
 [this thread](https://www.msx.org/forum/msx-talk/development/hardware-accelerated-polygon-fill-using-lmmm)
 
 ## TODO list:
+* ~Horizontal and vertical sweep;~
 * ~Output SC5 raw format directly;~
 * Output SC8 raw format directly;
 * ~Output screen as a MSX-BASIC program;~
