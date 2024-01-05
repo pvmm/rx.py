@@ -38,13 +38,13 @@ RX.py converts this:<br/>
 [this thread](https://www.msx.org/forum/msx-talk/development/hardware-accelerated-polygon-fill-using-lmmm)
 
 ## TODO list:
-* ~Horizontal and vertical sweep;~
-* ~Output SC5 raw format directly;~
-* Output SC8 raw format directly;
-* ~Output screen as a MSX-BASIC program;~
-* Output V9990 formats;
-* Add line detection;
-* Implement Bresenham's modified line algorithm (Python and C);
-* Write screen renderer in Python;
-* Write screen renderer in C for the MSX;
+* [x] Horizontal and vertical sweep;
+* [x] Output SC5 raw format directly;
+* [ ] Output SC8 raw format directly;
+* [x] Output screen as a MSX-BASIC program;
+* [ ] Output V9990 formats;
+* [ ] Add line detection;
+* [ ] Implement Bresenham's modified line algorithm (Python and C);
+* [ ] Write screen renderer in Python;
+* [ ] Write screen renderer in C for the MSX;
 
